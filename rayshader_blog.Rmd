@@ -1,0 +1,58 @@
+---
+title: "3D Vowel Plots with Rayshader"
+author: "Joey Stanley"
+date: "8/17/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+So [Tyler Morgan-Wall](https://www.tylermw.com) has recently come out with the [rayshader](https://www.rayshader.com) package and the R and Data Science Twitter community has been buzzing. I've seen people post some absolutely amazing 3D plots and animations. I haven't seen any linguists using it though, so I'm hopping on that bandwagon---a little late in the game---to show what kinds of 3D visuals we can produce using vowel data.
+
+## What is rayshader?
+
+Rayshader is an R package that makes it easy to create stunning 3D plots. My impression is that it was designed primarily with geospatial data in mind, so that you can create really nice 3D models of terrain and stuff. But recently, rayshader has been updated to take any plot created in ggplot2 and make it 3D. 
+
+If you're interested in learning how to use the package to make your ggplot2 plots stand out, I'd highly recommend looking through Morgan-Wall's [tutorial](https://www.tylermw.com/3d-ggplots-with-rayshader/). What I'm doing in this blog is essentially following that post, but using some vowel data.
+
+## A basic vowel plot
+
+Let me start with sort of a basic vowel plot. I'll first load in some of my own vowel data.
+
+```{r}
+one_vowel <- read_csv("../data/joey_laterals.csv") %>%
+    filter(vowel == "IY") %>%
+    select(-vowel) %>%
+    
+    # There were a few bad outliers.
+    mutate(mahal_dist = joeyr::tidy_mahalanobis(F2, F1),
+           mahal_dist = round(mahal_dist, 3)) %>%
+    arrange(-mahal_dist) %>%
+    filter(mahal_dist < 10) %>%
+    print()
+```
+
+```{r}
+ggplot(one_vowel, aes(F2, F1)) + 
+    geom_point() + 
+    scale_x_reverse() + scale_y_reverse() + 
+    theme_classic()
+```
+
+The one example showed this hexbin thing. This is essentially a point pattern analysis... Kretzschmar will love it.
+
+```{r, fig.heigh = 10, fig.width = 7}
+hex_plot <- ggplot(one_vowel, aes(F2, F1)) + 
+    geom_hex(bins = 10, size = 1, color = "black") + 
+    scale_x_reverse() + scale_y_reverse() + 
+    scale_fill_viridis_c(option = "C")
+hex_plot
+```
+
+Now make it 3D.
+
+```{r}
+plot_gg(hex_plot, width = 5, height = 4, scale = 300, multicore = TRUE, windowsize = c(1000, 800))
+```
