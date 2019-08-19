@@ -61,12 +61,14 @@ Let's look at that using a pretty traditional scatterplot.
 ggplot(my_iy, aes(F2, F1, label = tolower(word))) + 
   geom_text() + 
   scale_x_reverse() + scale_y_reverse() + 
-  coord_fixed(ratio = 2) + 
-  theme_classic()
+  theme_classic() + 
+  labs(title = "Joey's /i/ vowel",
+       subtitle = "A classic scatterplot",
+       caption = "joeystanley.com/blog/3d-vowel-plots-with-rayshader")
 ```
 
 ```{r, echo = FALSE}
-ggsave("iy_with_words.jpeg", height = 5, width = 7, dpi = 300)
+ggsave("iy_with_words.jpeg", height = 6, width = 7, dpi = 300)
 ```
 
 So, to get the 3D plot to work with rayshader, I need some variable that should act as the depth dimension. In Morgan-Wall's example, he adopts a pretty standard technique when looking at coordinate data. You basically overlay some tessalating shape like a hexagon, count how many points are in each hexagon, and color that cell based on how may points there are in it. I haven't seen this used too much in vowel data, other than Bill Kretzschmar's recent work, but it's a possibility.<span class="sidenote">Also, see my recent presentation at [DH2019](/blog/dh2019).</span> Fortunately, this is straightforward with `geom_hex`. 
@@ -75,12 +77,15 @@ So, to get the 3D plot to work with rayshader, I need some variable that should 
 hex_plot <- ggplot(my_iy, aes(F2, F1)) + 
   geom_hex(bins = 10, size = 1, color = "black") + 
   scale_x_reverse() + scale_y_reverse() + 
-  scale_fill_viridis_c(option = "C")
+  scale_fill_viridis_c(option = "C") + 
+  labs(title = "Joey's /i/ vowel",
+       subtitle = "Binned into hexagons, colored by density.",
+       caption = "joeystanley.com/blog/3d-vowel-plots-with-rayshader")
 hex_plot
 ```
 
 ```{r, echo = FALSE}
-ggsave("hex_plot.jpeg", height = 5, width = 7, dpi = 300)
+ggsave("hex_plot.jpeg", height = 6, width = 7, dpi = 300)
 ```
 
 Already kind of a cool way at looking at it. But we're just getting started.
@@ -91,10 +96,10 @@ Now make it 3D. This is really quite straightforward with `plot_gg`. I'm mostly 
 
 <span class="sidenote">FYI, this took about a minute and a half to render on my laptop.</span>
 ```{r, eval = FALSE}
-# {1.6, 1.7, 1.9} minutes
+# {1.6, 1.7, 1.9, 1.6} minutes
 start_time <- Sys.time()
-plot_gg(hex_plot, 
-        height = 5, width = 7, 
+plot_gg(hex_plot + labs(caption = "Created with rayshader.\njoeystanley.com/blog/3d-vowel-plots-with-rayshader"), 
+        height = 6, width = 7, 
         scale = 250, zoom = 0.6, 
         windowsize = c(1400, 800),
         multicore = TRUE)
@@ -147,7 +152,7 @@ render_movie(filename = "hex_plot_fancy", type = "custom",
 Sys.time() - start_time
 ```
 
-Now if that's not one of the slickest vowel plots you've seen, you've got to point me to whatever you're reading!
+So that is definitely a new way at visualizing vowel data.
 
 
 ## A heatmap
@@ -231,11 +236,15 @@ The next question then is whether I can plot this to make it look like a spectro
 
 ```{r}
 ggplot(wav_df, aes(t, hz)) + 
-  geom_line()
+  geom_line() + 
+  labs(title = "One token of \"boy\" by Joey",
+       subtitle = "A simple waveform.",
+       x = "time (ms)", y = NULL,
+       caption = "joeystanley.com/blog/3d-vowel-plots-with-rayshader")
 ```
 
 ```{r}
-ggsave("waveform.jpeg", height = 3.5, width = 7, dpi = 300)
+ggsave("waveform.jpeg", height = 4.5, width = 7, dpi = 300)
 ```
 
 
@@ -325,16 +334,16 @@ With this modification of the function, I can now convert my data from waveform 
 
 ```{r}
 spec <- joey_spec(wav_df$hz) %>%
-    as.tibble() %>%
-    rowid_to_column("time") %>%
-    print()
+  as.tibble() %>%
+  rowid_to_column("sample") %>%
+  print()
 ```
 
 This isn't the most useful format, so I'll do some reshaping with `gather` and turn it into a very tall spreadsheet with 629,340 rows.
 
 ```{r}
 spec_tall <- spec %>%
-    gather(hz, value, -time) %>%
+    gather(hz, value, -sample) %>%
     mutate(hz = as.double(hz)) %>%
     print()
 ```
@@ -346,33 +355,40 @@ And now, finally, I've got my acoustic data in the format I want! Also, let's ta
 Okay, so using this data, I can already do a basic plot in ggplot2 to make sure it looks good.
 
 ```{r}
-ggplot(spec_tall, aes(time, hz, color = value)) + 
-    geom_point(size = 0.5, alpha = 0.03) + 
-    scale_color_viridis_c(option = "A") + 
-    scale_y_continuous(limits = c(0, 5000))
+ggplot(spec_tall, aes(sample, hz, color = value)) + 
+  geom_point(size = 0.5, alpha = 0.03) + 
+  scale_color_viridis_c(option = "A") + 
+  scale_y_continuous(limits = c(0, 5000)) + 
+  labs(title = "One token of \"boy\" by Joey",
+       subtitle = "A spectrogram using points.",
+       x = "sample", y = "hz",
+       caption = "joeystanley.com/blog/3d-vowel-plots-with-rayshader")
 ```
 
 ```{r, echo = FALSE}
-ggsave("spec_points.jpeg", height = 5, width = 7, dpi = 300)
+ggsave("spec_points.jpeg", height = 6, width = 7, dpi = 300)
 ```
 
 It may not look like it, but that plot is made up of several hunderd thousand dots. With that much data, a PDF would get huge (since each dot has to be rendered individually). Since they all visually sort of blur together anyway, might as well simplify things and turn it into a 2D-density plot with `geom_raster`.
 
 ```{r}
-spec <- ggplot(spec_tall, aes(time/max(time) * 0.83, hz)) + 
-    geom_raster(aes(fill = value), interpolate = TRUE) + 
-    scale_y_continuous(limits = c(0, 4500)) + 
-    scale_fill_viridis_c(option = "A") + 
-    labs(x = "time (s)")+ 
-    theme_classic()
+spec <- ggplot(spec_tall, aes(sample/max(sample) * 0.83, hz)) + 
+  geom_raster(aes(fill = value), interpolate = TRUE) + 
+  scale_y_continuous(limits = c(0, 4500)) + 
+  scale_fill_viridis_c(option = "A") + 
+  theme_classic() + 
+  labs(title = "One token of \"boy\" by Joey",
+       subtitle = "A spectrogram using a raster.",
+       x = "time (s)", y = "hz",
+       caption = "joeystanley.com/blog/3d-vowel-plots-with-rayshader")
 spec
 ```
 
 ```{r, echo = FALSE}
-ggsave("spec_raster.jpeg", height = 5, width = 7, dpi = 300)
+ggsave("spec_raster.jpeg", height = 6, width = 9, dpi = 300)
 ```
 
-The difference visually is realatively small, other than the colors being bolder. But rather than plotting individual points, this is a mosaic of tiles all arranged neatly to fill the space.
+The difference visually is relatively small, other than the colors being bolder. But rather than plotting individual points, this is a mosaic of tiles all arranged neatly to fill the space.
 
 ### A 3D spectrogram
 
@@ -381,8 +397,8 @@ Anyway, I've belabored the point for too long. Let's now turn this into a 3D plo
 <span class="sidenote">Took about a minute to render and save.</span>
 ```{r, eval = FALSE}
 start_time <- Sys.time()
-plot_gg(spec, 
-        width = 6, height = 3, scale = 300, 
+plot_gg(spec + labs(caption = "Created with rayshader\njoeystanley.com/blog/3d-vowel-plots-with-rayshader"),
+        width = 6, height = 4, scale = 300, 
         windowsize = c(1000, 800),
         fov = 70, zoom = 0.6, 
         theta = 330, phi = 40,
